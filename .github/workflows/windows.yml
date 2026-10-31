@@ -1,0 +1,47 @@
+name: Build Windows
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # -PdesktopOnly=true: modul Android tidak ikut dikonfigurasi (tidak butuh Android SDK)
+      - name: Compile dan install desktop
+        run: gradle -PdesktopOnly=true :desktop:installDist --stacktrace
+
+      # app-image = folder berisi ChillWorld.exe + Java bawaan, PC tidak perlu install Java
+      - name: Package ChillWorld.exe
+        shell: pwsh
+        run: |
+          jpackage --type app-image --name ChillWorld `
+            --input desktop/build/install/desktop/lib `
+            --main-jar desktop.jar `
+            --main-class com.vinz.chillworld.desktop.MainKt `
+            --java-options "-Xmx3g" `
+            --dest dist
+          Compress-Archive -Path dist/ChillWorld -DestinationPath ChillWorld-windows-x64.zip
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChillWorld-windows-x64
+          path: ChillWorld-windows-x64.zip
+          if-no-files-found: error
