@@ -41,7 +41,7 @@ object Settings {
 
     fun effectiveRadius(): Int = (quality.chunkRadius + radiusAdjust).coerceAtLeast(2)
 
-    fun setQuality(q: Quality) {
+    fun applyQuality(q: Quality) {
         quality = q
         radiusAdjust = 0
         presetVersion++

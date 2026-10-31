@@ -174,7 +174,7 @@ class MainActivity : Activity(), UiBridge {
         for (q in Quality.values()) {
             val b = smallButton(q.label)
             b.setOnClickListener {
-                Settings.setQuality(q)
+                Settings.applyQuality(q)
                 refreshPanel()
             }
             presetButtons.add(b)
