@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Download texture CC0 dari ambientCG (resolusi 1K JPG) buat Chill World.
+Download texture CC0 dari ambientCG (resolusi 2K JPG) buat Chill World.
 
 Cara pakai:
   python scripts/download_textures.py            (semua material)
@@ -30,7 +30,7 @@ REPORT = os.path.join(ROOT, "scripts", "texture_report.txt")
 CREDITS = os.path.join(ROOT, "CREDITS.md")
 USED_FILE = os.path.join(ROOT, "scripts", "texture_used.txt")
 
-URL = "https://ambientcg.com/get?file={id}_1K-JPG.zip"
+URL = "https://ambientcg.com/get?file={id}_2K-JPG.zip"
 
 # nama material -> daftar ID (ID utama dulu, sisanya cadangan)
 MATERIALS = {
@@ -176,7 +176,7 @@ def main():
     try:
         for name in names:
             log("Material: %s" % name)
-            if is_complete(name) and name in used:
+            if is_complete(name) and name in used and not os.environ.get("CW_FORCE"):
                 log("  [lewati] sudah lengkap (%s)" % used[name])
                 continue
             ok = False

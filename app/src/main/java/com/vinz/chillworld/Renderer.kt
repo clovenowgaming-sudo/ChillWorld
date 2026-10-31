@@ -65,10 +65,10 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         caps.detect(ctx)
         if (!Settings.autoPresetDone) {
-            Settings.quality = caps.suggestedQuality()
+            // tanpa deteksi GPU: semua HP mulai dari preset bawaan, ganti manual lewat menu
             Settings.autoPresetDone = true
             Settings.presetVersion++
-            Log.i(Gl.TAG, "Preset awal otomatis: " + Settings.quality.label)
+            Log.i(Gl.TAG, "Preset awal: " + Settings.quality.label + " (manual, tanpa deteksi GPU)")
         }
         world?.dispose()
         GLES30.glBindVertexArray(0)
@@ -381,10 +381,14 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
                 (if (culler?.useGpu == true) " | compute" else " | CPU cull")
             ui.onStats(fps, curScale, info)
 
-            if (q == Quality.LOW && fps < 20f) lowFpsTime += 0.5f else lowFpsTime = 0f
+            if (fps < 20f) lowFpsTime += 0.5f else lowFpsTime = 0f
             if (lowFpsTime >= 5f && !hinted) {
                 hinted = true
-                ui.onHint("FPS masih di bawah 20 pada Low. Saran: turunkan radius chunk lewat menu (tombol gear).")
+                if (q == Quality.LOW) {
+                    ui.onHint("FPS masih di bawah 20 pada Low. Saran: turunkan radius chunk lewat Menu.")
+                } else {
+                    ui.onHint("FPS di bawah 20 pada preset " + q.label + ". Coba turunkan preset lewat Menu.")
+                }
             }
         }
     }

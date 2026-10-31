@@ -89,6 +89,16 @@ float cascadeEnd(int i) {
     return i == 0 ? uSplits.x : (i == 1 ? uSplits.y : (i == 2 ? uSplits.z : uSplits.w));
 }
 
+const vec2 POISSON[16] = vec2[16](
+    vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
+    vec2(-0.094184101, -0.92938870), vec2(0.34495938, 0.29387760),
+    vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+    vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
+    vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
+    vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
+    vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
+    vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790));
+
 float shadowCascade(int ci, vec3 wp, vec3 N, float NoL) {
     // bias berbasis kemiringan: makin miring permukaan, offset normal makin besar
     float texel = cascadeTexel(ci);
@@ -101,14 +111,19 @@ float shadowCascade(int ci, vec3 wp, vec3 N, float NoL) {
 #ifdef FAST_SHADOW
     return texture(uShadow, vec4(sc.xy, layer, ref));
 #else
+    // 16 sampel Poisson diputar acak per piksel (TAA yang merapikan) = bayangan lembut
     float inv = uMisc.y;
+    float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    float ang = ign * 6.2831853;
+    vec2 rot = vec2(cos(ang), sin(ang));
+    float rad = inv * (1.8 + 0.6 * layer);
     float sum = 0.0;
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            sum += texture(uShadow, vec4(sc.xy + vec2(float(x), float(y)) * inv, layer, ref));
-        }
+    for (int i = 0; i < 16; i++) {
+        vec2 pp = POISSON[i];
+        vec2 o = vec2(pp.x * rot.x - pp.y * rot.y, pp.x * rot.y + pp.y * rot.x) * rad;
+        sum += texture(uShadow, vec4(sc.xy + o, layer, ref));
     }
-    return sum / 9.0;
+    return sum * 0.0625;
 #endif
 }
 
@@ -153,7 +168,12 @@ vec3 lightPBR(vec3 albedo, vec3 N, vec3 V, float rough, float shadow, float ao) 
     vec3 direct = (albedo * NoL + spec) * uLightColor.rgb * shadow;
     // ambient hemisphere dari langit + sedikit pantulan Fresnel
     vec3 amb = mix(uAmbGround.rgb, uAmbSky.rgb, N.y * 0.5 + 0.5);
-    float fr = 0.04 + 0.96 * pow(1.0 - NoV, 5.0);
-    vec3 envRefl = mix(uAmbGround.rgb, uAmbSky.rgb, clamp(reflect(-V, N).y * 0.5 + 0.5, 0.0, 1.0));
-    return direct + albedo * amb * ao + envRefl * fr * (1.0 - rough) * 0.6 * ao;
+    // pantulan langit asli (atmosfer + matahari/bulan), makin kasar makin buram
+    vec3 R = reflect(-V, N);
+    vec3 skyR = scatterAll(normalize(vec3(R.x, max(R.y, 0.02), R.z)));
+    vec3 envSoft = mix(uAmbGround.rgb, uAmbSky.rgb, clamp(R.y * 0.5 + 0.5, 0.0, 1.0));
+    vec3 envR = mix(uAmbGround.rgb, skyR, smoothstep(-0.15, 0.1, R.y));
+    envR = mix(envR, envSoft, clamp(rough * 1.4, 0.0, 1.0));
+    float Fr = 0.04 + (max(1.0 - rough, 0.04) - 0.04) * pow(1.0 - NoV, 5.0);
+    return direct + albedo * amb * ao + envR * Fr * (1.0 - rough) * 0.9 * mix(0.4, 1.0, ao);
 }

@@ -111,7 +111,7 @@ class MainActivity : Activity(), UiBridge {
 
         panel = buildPanel()
         panel.visibility = View.GONE
-        val pp = FrameLayout.LayoutParams(dp(300), -2, Gravity.CENTER)
+        val pp = FrameLayout.LayoutParams(dp(400), -2, Gravity.CENTER)
         root.addView(panel, pp)
         menuBtn.setOnClickListener {
             panel.visibility = if (panel.visibility == View.VISIBLE) View.GONE else View.VISIBLE

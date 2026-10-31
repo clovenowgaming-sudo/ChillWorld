@@ -1,3 +1,4 @@
+== Download ulang 2K ==
 Material: grass
   [ok] Grass001 dipakai untuk grass
 Material: ground
@@ -10,19 +11,6 @@ Material: bark
   [ok] Bark001 dipakai untuk bark
 Material: planks
   [ok] Planks021 dipakai untuk planks
-Material: roof
-Material: grass
-  [lewati] sudah lengkap (Grass001)
-Material: ground
-  [lewati] sudah lengkap (Ground037)
-Material: rock
-  [lewati] sudah lengkap (Rock030)
-Material: snow
-  [lewati] sudah lengkap (Snow004)
-Material: bark
-  [lewati] sudah lengkap (Bark001)
-Material: planks
-  [lewati] sudah lengkap (Planks021)
 Material: roof
   [ok] RoofingTiles006 dipakai untuk roof
 Material: plaster

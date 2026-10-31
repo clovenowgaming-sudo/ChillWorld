@@ -71,33 +71,4 @@ class GLCaps {
             "compute=$computeOk aniso=$maxAniso astc=$astc maxTex=$maxTextureSize")
     }
 
-    /** Pilih preset awal dari nama GPU, versi GLES, dan RAM. */
-    fun suggestedQuality(): Quality {
-        val r = renderer.lowercase()
-        var q = when {
-            r.contains("adreno") -> {
-                val n = Regex("(\\d{3})").find(r)?.value?.toInt() ?: 0
-                when {
-                    n >= 700 -> Quality.HIGH
-                    n >= 600 -> Quality.MEDIUM
-                    else -> Quality.LOW
-                }
-            }
-            r.contains("immortalis") -> Quality.HIGH
-            r.contains("mali") -> {
-                val n = Regex("g(\\d+)").find(r)?.groupValues?.get(1)?.toInt() ?: 0
-                when {
-                    n >= 77 -> Quality.HIGH
-                    n >= 52 -> Quality.MEDIUM
-                    else -> Quality.LOW
-                }
-            }
-            r.contains("powervr") -> Quality.LOW
-            else -> Quality.MEDIUM
-        }
-        if (!computeOk && q.ordinal > Quality.MEDIUM.ordinal) q = Quality.MEDIUM
-        if (ramMb <= 3800L && q.ordinal > Quality.MEDIUM.ordinal) q = Quality.MEDIUM
-        if (ramMb <= 3000L) q = Quality.LOW
-        return q
-    }
 }

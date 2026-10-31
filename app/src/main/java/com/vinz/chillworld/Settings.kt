@@ -26,7 +26,9 @@ enum class Quality(
     LOW("Low", 0.50f, 1, 1024, false, false, 0, 4, 0.25f, false, false, 70f, true, 50f, 45f, 120f, 512),
     MEDIUM("Medium", 0.67f, 2, 1536, true, false, 8, 6, 0.50f, false, true, 130f, false, 70f, 60f, 170f, 1024),
     HIGH("High", 0.80f, 3, 2048, true, false, 12, 8, 0.75f, false, true, 200f, false, 90f, 70f, 200f, 1024),
-    EXTREME("Extreme", 1.00f, 4, 2048, true, true, 16, 10, 1.00f, true, true, 300f, false, 110f, 80f, 230f, 1024)
+    EXTREME("Extreme", 1.00f, 4, 2048, true, true, 16, 10, 1.00f, true, true, 300f, false, 110f, 80f, 230f, 1024),
+    // paling berat (bayangan 4096, texture 2K): bebas dicoba di HP apa pun, HP lama bisa lag
+    ULTRA("Ultra", 1.00f, 4, 4096, true, true, 16, 12, 1.00f, true, true, 400f, false, 130f, 100f, 280f, 2048)
 }
 
 /** Pengaturan yang bisa diubah dari menu dalam game. */

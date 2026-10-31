@@ -11,6 +11,21 @@ in vec3 vWorld;
 in vec3 vNrm;
 layout(location = 0) out vec4 oColor;
 
+// campur dua sampel (skala & rotasi beda) supaya pola texture tidak keliatan berulang
+vec4 texA(vec2 uv, float layer) {
+    vec4 a = texture(uAlbedo, vec3(uv, layer));
+    vec2 uv2 = mat2(0.8, 0.6, -0.6, 0.8) * uv * 0.37 + vec2(0.31, 0.57);
+    vec4 b = texture(uAlbedo, vec3(uv2, layer));
+    return mix(a, b, 0.25 + 0.5 * vnoise(uv * 0.11));
+}
+
+vec4 texN(vec2 uv, float layer) {
+    vec4 a = texture(uNormRough, vec3(uv, layer));
+    vec2 uv2 = mat2(0.8, 0.6, -0.6, 0.8) * uv * 0.37 + vec2(0.31, 0.57);
+    vec4 b = texture(uNormRough, vec3(uv2, layer));
+    return mix(a, b, 0.25 + 0.5 * vnoise(uv * 0.11));
+}
+
 void main() {
     vec3 wp = vWorld;
     vec3 N0 = normalize(vNrm);
@@ -44,22 +59,22 @@ void main() {
 
     if (wGrass > 0.01) {
         vec3 c = vec3(uv, 0.0);
-        albedo += texture(uAlbedo, c).rgb * wGrass * (0.85 + 0.3 * nz);
-        vec4 t = texture(uNormRough, c);
+        albedo += texA(c.xy, c.z).rgb * wGrass * (0.85 + 0.3 * nz);
+        vec4 t = texN(c.xy, c.z);
         nAcc += (t.xyz * 2.0 - 1.0) * wGrass;
         rAcc += t.w * wGrass;
     }
     if (wD > 0.01) {
         vec3 c = vec3(wp.xz * 0.25, 1.0);
-        albedo += texture(uAlbedo, c).rgb * wD;
-        vec4 t = texture(uNormRough, c);
+        albedo += texA(c.xy, c.z).rgb * wD;
+        vec4 t = texN(c.xy, c.z);
         nAcc += (t.xyz * 2.0 - 1.0) * wD;
         rAcc += t.w * wD;
     }
     if (wS > 0.01) {
         vec3 c = vec3(wp.xz * 0.3, 3.0);
-        albedo += texture(uAlbedo, c).rgb * wS;
-        vec4 t = texture(uNormRough, c);
+        albedo += texA(c.xy, c.z).rgb * wS;
+        vec4 t = texN(c.xy, c.z);
         nAcc += (t.xyz * 2.0 - 1.0) * wS;
         rAcc += t.w * wS;
     }
@@ -79,7 +94,7 @@ void main() {
 
     // detail normal memudar di kejauhan
     float detail = 1.0 - smoothstep(60.0, 220.0, dist);
-    vec3 nl = vec3(nAcc.xy * detail, max(nAcc.z, 0.2));
+    vec3 nl = vec3(nAcc.xy * detail * 1.4, max(nAcc.z, 0.2));
     vec3 N = applyNormalVec(N0, wp, uv, normalize(nl));
 
     float ao = 0.78 + 0.22 * smoothstep(0.1, 0.7, nz);

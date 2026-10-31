@@ -106,7 +106,7 @@ object TextureLoader {
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_REPEAT)
         if (caps.anisoOk) {
             // GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE
-            GLES20.glTexParameterf(GLES30.GL_TEXTURE_2D_ARRAY, 0x84FE, minOf(caps.maxAniso, 4f))
+            GLES20.glTexParameterf(GLES30.GL_TEXTURE_2D_ARRAY, 0x84FE, minOf(caps.maxAniso, if (size >= 2048) 16f else 4f))
         }
         return id
     }
