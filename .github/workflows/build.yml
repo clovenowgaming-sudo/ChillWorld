@@ -1,44 +1,50 @@
 name: Build APK
 
-# Build otomatis tiap push, atau jalankan manual lewat tab Actions (workflow_dispatch)
 on:
-  push:
-  workflow_dispatch:
+push:
+workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ambil kode
-        uses: actions/checkout@v4
+build:
+runs-on: ubuntu-latest
 
-      - name: Pasang JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+steps:
+  - name: Ambil kode
+    uses: actions/checkout@v4
 
-      - name: Pasang Android SDK
-        uses: android-actions/setup-android@v3
+  - name: Pasang JDK 17
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+  - name: Setup Android SDK
+    uses: android-actions/setup-android@v3
+    with:
+      packages: |
+        platform-tools
+        platforms;android-35
+        build-tools;35.0.0
+      accept-android-sdk-licenses: true
 
-      - name: Buat gradle wrapper kalau belum ada
-        run: |
-          if [ ! -f gradlew ]; then
-            gradle wrapper --gradle-version 8.7
-          fi
-          chmod +x gradlew
+  - name: Setup Gradle
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      gradle-version: '8.7'
 
-      - name: Build APK debug
-        run: ./gradlew assembleDebug --stacktrace
+  - name: Buat Gradle Wrapper
+    run: |
+      if [ ! -f gradlew ]; then
+        gradle wrapper --gradle-version 8.7
+      fi
+      chmod +x gradlew
 
-      - name: Unggah APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ChillWorld-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+  - name: Build APK Debug
+    run: ./gradlew assembleDebug --stacktrace
+
+  - name: Unggah APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: ChillWorld-debug-apk
+      path: app/build/outputs/apk/debug/app-debug.apk
+      if-no-files-found: error
