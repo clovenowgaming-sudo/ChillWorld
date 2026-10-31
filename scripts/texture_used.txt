@@ -1,0 +1,8 @@
+grass=Grass001
+ground=Ground037
+rock=Rock030
+snow=Snow004
+bark=Bark001
+planks=Planks021
+roof=RoofingTiles006
+plaster=Plaster001
