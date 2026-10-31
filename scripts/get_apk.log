@@ -1,0 +1,4 @@
+Run sukses terbaru: 41185990826
+error downloading ChillWorld-debug-apk: error extracting zip archive: error extracting "app-debug.apk": openat app-debug.apk: file exists
+APK: /data/data/com.termux/files/home/termux-mcp/workspace/ChillWorld/scripts/../apk_out/app-debug.apk (30.9 MB)
+Disalin ke: /data/data/com.termux/files/home/storage/downloads/ChillWorld-debug.apk (30.9 MB)
