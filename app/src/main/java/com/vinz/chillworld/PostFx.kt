@@ -32,6 +32,15 @@ class PostFx {
     private var bw = 1
     private var bh = 1
     private var vao = 0
+    private val rtFbo = IntArray(3)
+    private val rtTex = IntArray(3)
+    private var pRtA = 0
+    private var pRtB = 0
+    private var pRtC = 0
+
+    /** Texture warna untuk TAA/present: sceneColor, atau hasil Ray Tracing buatan. */
+    var postInput = 0
+        private set
 
     private var pGod = 0
     private var pTaa = 0
@@ -67,6 +76,27 @@ class PostFx {
         GLES30.glUseProgram(pPresent)
         sh.setInt(pPresent, "uImg", 0)
         sh.setInt(pPresent, "uBloom", 1)
+
+        // Ray Tracing buatan (3 pass). Kalau ada yang gagal compile, efeknya dilewati otomatis.
+        pRtA = sh.program("fullscreen.vert", "rtsim_a.frag")
+        if (pRtA != 0) {
+            GLES30.glUseProgram(pRtA)
+            sh.setInt(pRtA, "uScene", 0)
+            sh.setInt(pRtA, "uDepth", 1)
+        }
+        pRtB = sh.program("fullscreen.vert", "rtsim_b.frag")
+        if (pRtB != 0) {
+            GLES30.glUseProgram(pRtB)
+            sh.setInt(pRtB, "uRt", 0)
+            sh.setInt(pRtB, "uDepth", 1)
+        }
+        pRtC = sh.program("fullscreen.vert", "rtsim_c.frag")
+        if (pRtC != 0) {
+            GLES30.glUseProgram(pRtC)
+            sh.setInt(pRtC, "uScene", 0)
+            sh.setInt(pRtC, "uDepth", 1)
+            sh.setInt(pRtC, "uRt", 2)
+        }
         GLES30.glUseProgram(0)
     }
 
@@ -113,10 +143,15 @@ class PostFx {
             histFbo[i] = 0; histTex[i] = 0; bloomFbo[i] = 0; bloomTex[i] = 0
         }
         sceneFbo = 0; sceneColor = 0; sceneDepth = 0; godFbo = 0; godTex = 0
+        for (i in 0 until 3) {
+            Gl.delFbo(rtFbo[i]); Gl.delTexture(rtTex[i])
+            rtFbo[i] = 0; rtTex[i] = 0
+        }
+        postInput = 0
     }
 
     /** Buat ulang semua target untuk ukuran layar + render scale tertentu. */
-    fun resize(screenW: Int, screenH: Int, scale: Float, taa: Boolean, god: Boolean, bloom: Boolean) {
+    fun resize(screenW: Int, screenH: Int, scale: Float, taa: Boolean, god: Boolean, bloom: Boolean, rt: Boolean = false) {
         free()
         rw = maxOf(16, (screenW * scale).toInt())
         rh = maxOf(16, (screenH * scale).toInt())
@@ -143,6 +178,13 @@ class PostFx {
                 bloomFbo[i] = makeFbo(bloomTex[i], 0, "bloom$i")
             }
         }
+        if (rt) {
+            for (i in 0 until 3) {
+                rtTex[i] = colorTex(rw, rh)
+                rtFbo[i] = makeFbo(rtTex[i], 0, "rt$i")
+            }
+        }
+        postInput = sceneColor
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
         historyValid = false
@@ -190,13 +232,13 @@ class PostFx {
 
     /** TAA (kalau aktif). Return texture hasil yang siap dipakai pass berikutnya. */
     fun resolve(taaOn: Boolean, godOn: Boolean): Int {
-        if (!taaOn || pTaa == 0 || histFbo[0] == 0) return sceneColor
+        if (!taaOn || pTaa == 0 || histFbo[0] == 0) return postInput
         postState()
         val cur = 1 - histIdx
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, histFbo[cur])
         GLES30.glViewport(0, 0, rw, rh)
         GLES30.glUseProgram(pTaa)
-        bindTex(0, sceneColor)
+        bindTex(0, postInput)
         bindTex(1, if (godOn && godTex != 0) godTex else sceneColor)
         bindTex(2, histTex[histIdx])
         bindTex(3, sceneDepth)
@@ -206,6 +248,51 @@ class PostFx {
         histIdx = cur
         historyValid = true
         return histTex[cur]
+    }
+
+    /**
+     * Ray Tracing buatan (screen-space), 3 pass: A = AO + contact shadow + color bleeding,
+     * B = denoise bilateral, C = komposit + SSR. Hasilnya jadi masukan TAA (temporal accumulation).
+     * Kalau mati atau shader gagal compile, postInput tetap sceneColor (tampilan normal).
+     */
+    fun rtSim(rt: RtSim) {
+        postInput = sceneColor
+        if (!rt.enabled || rtFbo[0] == 0 || pRtA == 0 || pRtB == 0 || pRtC == 0) return
+        postState()
+        GLES30.glViewport(0, 0, rw, rh)
+
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, rtFbo[0])
+        GLES30.glUseProgram(pRtA)
+        bindTex(0, sceneColor)
+        bindTex(1, sceneDepth)
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(pRtA, "uAoSamples"), rt.aoSamples)
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(pRtA, "uGiSamples"), rt.giSamples)
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(pRtA, "uContactSteps"), rt.contactSteps)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtA, "uAoRadius"), rt.aoRadius)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtA, "uAoStrength"), rt.aoStrength)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtA, "uContactStrength"), rt.contactStrength)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtA, "uContactLen"), rt.contactLen)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtA, "uGiRadiusPx"), rt.giRadiusPx)
+        drawFull()
+
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, rtFbo[1])
+        GLES30.glUseProgram(pRtB)
+        bindTex(0, rtTex[0])
+        bindTex(1, sceneDepth)
+        drawFull()
+
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, rtFbo[2])
+        GLES30.glUseProgram(pRtC)
+        bindTex(0, sceneColor)
+        bindTex(1, sceneDepth)
+        bindTex(2, rtTex[1])
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(pRtC, "uSsrSteps"), rt.ssrSteps)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtC, "uGiStrength"), rt.giStrength)
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(pRtC, "uSsrStrength"), rt.ssrStrength)
+        drawFull()
+
+        postInput = rtTex[2]
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
 
     /** Bloom ringan. Return texture bloom (hasil akhir blur vertikal). */

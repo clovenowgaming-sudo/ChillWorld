@@ -40,6 +40,8 @@ object Settings {
     @Volatile var timeOfDay = 10f        // jam 0..24
     @Volatile var timeRunning = true
     @Volatile var autoPresetDone = false
+    /** 0 = ikut preset. PC: 4096 kalau texture 4K asli tersedia (hanya dipakai di preset Ultra). */
+    @Volatile var texOverride = 0
 
     fun effectiveRadius(): Int = (quality.chunkRadius + radiusAdjust).coerceAtLeast(2)
 

@@ -5,6 +5,7 @@ import android.opengl.DesktopGl
 import com.vinz.chillworld.Input
 import com.vinz.chillworld.Quality
 import com.vinz.chillworld.Renderer
+import com.vinz.chillworld.RtSim
 import com.vinz.chillworld.Settings
 import com.vinz.chillworld.UiBridge
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
@@ -67,6 +68,44 @@ private fun toggleFullscreen(window: Long) {
 
 private fun down(window: Long, key: Int) = glfwGetKey(window, key) == GLFW_PRESS
 
+/** True kalau SEMUA texture 4K asli ada di assets_pc/textures dan resolusinya memang >= 4096 (bukan hasil upscale). */
+private fun native4kAvailable(): Boolean {
+    val dir = java.io.File("assets_pc/textures")
+    for (m in listOf("grass", "ground", "rock", "snow", "bark", "planks", "roof", "plaster")) {
+        for (k in listOf("albedo", "normal", "rough")) {
+            if (!java.io.File(dir, m + "_" + k + ".jpg").isFile) return false
+        }
+    }
+    return try {
+        val f = java.io.File(dir, "grass_albedo.jpg")
+        val iis = javax.imageio.ImageIO.createImageInputStream(f)
+        val readers = javax.imageio.ImageIO.getImageReaders(iis)
+        if (!readers.hasNext()) {
+            iis.close()
+            false
+        } else {
+            val r = readers.next()
+            r.input = iis
+            val ok = r.getWidth(0) >= 4096 && r.getHeight(0) >= 4096
+            r.dispose()
+            iis.close()
+            ok
+        }
+    } catch (e: Exception) {
+        false
+    }
+}
+
+private fun toggle4k() {
+    if (!native4kAvailable()) {
+        println("[Chill World] Texture 4K asli belum ada. Jalankan: python scripts/download_textures_4k.py")
+        return
+    }
+    Settings.texOverride = if (Settings.texOverride > 0) 0 else 4096
+    Settings.presetVersion++
+    println("[Chill World] Texture 4K: " + (if (Settings.texOverride > 0) "AKTIF (hanya di preset Ultra, loading beberapa detik)" else "mati (2K)"))
+}
+
 fun main() {
     GLFWErrorCallback.createPrint(System.err).set()
     check(glfwInit()) { "GLFW gagal dijalankan" }
@@ -89,6 +128,10 @@ fun main() {
     GL.createCapabilities()
     DesktopGl.init()
 
+    if (native4kAvailable()) {
+        Settings.texOverride = 4096
+        println("[Chill World] Texture 4K asli terdeteksi: dipakai di preset Ultra (tekan K untuk matikan/nyalakan)")
+    }
     val ui = DesktopUi()
     ui.window = window
     val renderer = Renderer(Context(), ui)
@@ -107,6 +150,9 @@ fun main() {
             GLFW_KEY_ESCAPE -> if (captured) setCaptured(w, false) else glfwSetWindowShouldClose(w, true)
             GLFW_KEY_F11 -> toggleFullscreen(w)
             GLFW_KEY_F -> Input.flyMode = !Input.flyMode
+            GLFW_KEY_R -> RtSim.enable(!RtSim.enabled)
+            GLFW_KEY_T -> RtSim.cycleLevel()
+            GLFW_KEY_K -> toggle4k()
             GLFW_KEY_V -> {
                 vsync = !vsync
                 glfwSwapInterval(if (vsync) 1 else 0)
@@ -131,7 +177,7 @@ fun main() {
     }
 
     println("[Chill World] Kontrol: WASD jalan | mouse lihat (klik untuk tangkap, Esc lepas) | F terbang, Spasi naik, Shift turun")
-    println("[Chill World] 1-5 ganti preset (Low..Ultra) | V vsync | F11 fullscreen | Esc (saat mouse bebas) keluar")
+    println("[Chill World] 1-5 ganti preset (Low..Ultra) | R ray tracing buatan on/off | T level RT (1-3) | K texture 4K | V vsync | F11 fullscreen | Esc keluar")
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents()

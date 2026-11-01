@@ -54,6 +54,7 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
     private var lowFpsTime = 0f
     private var hinted = false
     private var spawned = false
+    private var appliedRt = -1
 
     private val look = FloatArray(2)
     private val planes = FloatArray(24)
@@ -125,7 +126,8 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
         sky.loadPrograms(sh)
         post.loadPrograms(sh)
 
-        val size = min(q.texSize, caps.maxTextureSize)
+        val want = if (Settings.texOverride > 0 && q == Quality.ULTRA) Settings.texOverride else q.texSize
+        val size = min(want, caps.maxTextureSize)
         val ts = texSet
         if (ts == null || ts.size != size) {
             if (ts != null) TextureLoader.delete(ts)
@@ -140,6 +142,7 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
         houses.maxDist = min(r * 64f * 0.9f, 380f)
         camera.far = (r + 1) * 64f * 1.15f
         curScale = q.renderScale
+        RtSim.autoFor(q)
         needTargets = true
         hinted = false
         lowFpsTime = 0f
@@ -149,7 +152,7 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
 
     private fun rebuildTargets() {
         val q = Settings.quality
-        post.resize(screenW, screenH, curScale, q.taa, q.godraySamples > 0, q.bloom)
+        post.resize(screenW, screenH, curScale, q.taa, q.godraySamples > 0, q.bloom, RtSim.enabled)
         needTargets = false
     }
 
@@ -158,6 +161,10 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
         val c = culler ?: return
         val w = world ?: return
         if (Settings.presetVersion != appliedPreset) applyPreset()
+        if (RtSim.version != appliedRt) {
+            appliedRt = RtSim.version
+            needTargets = true
+        }
         if (needTargets) rebuildTargets()
         val q = Settings.quality
         val ts = texSet ?: return
@@ -278,6 +285,7 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
         if (q.godraySamples > 0) godOn = runGodrays(q)
 
         // ---- TAA, bloom, present
+        post.rtSim(RtSim)
         val resolved = post.resolve(q.taa, godOn)
         val bloomTex = if (q.bloom) post.bloom(resolved) else 0
         post.present(resolved, bloomTex, if (q.cas) 0.7f else 0f, 0.35f, screenW, screenH)
@@ -378,7 +386,8 @@ class Renderer(private val ctx: Context, private val ui: UiBridge) : GLSurfaceVi
             val avg = if (n > 0) sum / n else 16f
             val fps = 1000f / max(avg, 0.1f)
             val info = "Chunk " + infoVisible + " | GLES " + caps.major + "." + caps.minor +
-                (if (culler?.useGpu == true) " | compute" else " | CPU cull")
+                (if (culler?.useGpu == true) " | compute" else " | CPU cull") +
+                (if (RtSim.enabled) " | RT-sim L" + RtSim.level else "")
             ui.onStats(fps, curScale, info)
 
             if (fps < 20f) lowFpsTime += 0.5f else lowFpsTime = 0f
